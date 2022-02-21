@@ -9,5 +9,4 @@ set(LLVM_LINK_COMPONENTS
 
 add_llvm_tool(typechecker
   main.cpp
-  instruction.cpp
   )

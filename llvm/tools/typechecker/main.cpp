@@ -37,7 +37,6 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/WithColor.h"
-#include "instruction.h"
 
 using namespace llvm;
 
