@@ -21,6 +21,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/instruction.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
@@ -193,6 +194,10 @@ protected:
   /// parse an instruction into Operands, and then call the target specific
   /// MatchAndEmit function to match and emit the instruction.
   bool parseAndMatchAndEmitTargetInstruction(ParseStatementInfo &Info,
+                                             StringRef IDVal, AsmToken ID,
+                                             SMLoc IDLoc);
+  
+  bool parseTargetInstruction(ParseStatementInfo &Info,
                                              StringRef IDVal, AsmToken ID,
                                              SMLoc IDLoc);
 
@@ -2309,7 +2314,37 @@ bool AsmParser::parseStatement(ParseStatementInfo &Info,
   if (checkForValidSection())
     return true;
 
-  return parseAndMatchAndEmitTargetInstruction(Info, IDVal, ID, IDLoc);
+  return parseTargetInstruction(Info, IDVal, ID, IDLoc);
+}
+
+bool AsmParser::parseTargetInstruction(ParseStatementInfo &Info,
+                                       StringRef IDVal,
+                                       AsmToken ID,
+                                       SMLoc IDLoc) {
+  std::string OpcodeStr = IDVal.lower();
+  ParseInstructionInfo IInfo(Info.AsmRewrites);
+  bool ParseHadError = getTargetParser().ParseInstruction(IInfo, OpcodeStr, ID,
+                                                          Info.ParsedOperands);
+  Info.ParseError = ParseHadError;
+
+  // Dump the parsed representation, if requested.
+    SmallString<256> Str;
+    raw_svector_ostream OS(Str);
+    OS << "parsed instruction: [";
+    for (unsigned i = 0; i != Info.ParsedOperands.size(); ++i) {
+      if (i != 0)
+        OS << ", ";
+      Info.ParsedOperands[i]->print(OS);
+    }
+    OS << "]";
+
+    printMessage(IDLoc, SourceMgr::DK_Note, OS.str());
+
+  // Fail even if ParseInstruction erroneously returns false.
+  if (hasPendingError() || ParseHadError)
+    return true;
+
+  return false;
 }
 
 bool AsmParser::parseAndMatchAndEmitTargetInstruction(ParseStatementInfo &Info,
