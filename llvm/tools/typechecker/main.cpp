@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/instruction.h"
 #include "llvm/MC/MCAsmBackend.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCCodeEmitter.h"
@@ -37,6 +38,8 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/WithColor.h"
+#include <list>
+#include <string>
 
 using namespace llvm;
 
@@ -310,7 +313,15 @@ static int AssembleInput(const char *ProgName, const Target *TheTarget,
   Parser->getLexer().setLexMasmHexFloats(LexMasmHexFloats);
   Parser->getLexer().setLexMotorolaIntegers(LexMotorolaIntegers);
 
-  int Res = Parser->Run(NoInitialTextSection);
+  std::list<Instruction> program;
+
+  int Res = Parser->myRun(NoInitialTextSection, program);
+
+
+  for (auto ins: program) {
+    printf("%s", ins.mnemonic.c_str());
+  }
+  
 
   return Res;
 }

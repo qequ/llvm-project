@@ -150,6 +150,9 @@ struct X86Operand final : public MCParsedAsmOperand {
   }
 
   void addParsedInstructionToStruct(Instruction &inst) const override {
+    if (Kind == Token) {
+      inst.mnemonic = Tok.Data;
+    }
   }
 
   StringRef getToken() const {

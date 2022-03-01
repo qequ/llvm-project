@@ -3,42 +3,46 @@
 #include <list>
 #include <string>
 #include <variant>
+#include <optional>
 #pragma once
 namespace llvm {
 
+using Mnemonic = std::string;
 
-    using Mnemonic = std::string;
+enum class X86Registers {
+  rdi,
+  rsi,
+  ax,
+  bx,
+  cx,
+  dx,
+  bp,
+  sp
+  // add more later
+};
 
-    enum class X86Registers {
-    rdi,
-    rsi,
-    ax,
-    bx,
-    cx,
-    dx,
-    bp,
-    sp
-    // add more later
-    };
+using ImmediateInteger = uint64_t;
 
-    using ImmediateInteger = uint64_t;
+struct Address {};
 
-    struct Address {};
-
+struct Types {
     struct NoPointer {};
     struct Pointer {
     unsigned int indirections;
     };
-    using TypeInfo = std::variant<NoPointer, Pointer>;
 
-    struct Operand {
-    std::variant<X86Registers, ImmediateInteger, Address> operandData;
-    TypeInfo typeData; // to be calculated
-    };
+};
 
-    struct Instruction {
-        Mnemonic mnemonic;
-        std::list<Operand> operands;
-    };
-}
+using TypeData = std::variant<Types::NoPointer, Types::Pointer>;
+
+struct Operand {
+  std::variant<X86Registers, ImmediateInteger, Address> operandData;
+  std::optional<TypeData> typeData; // to be calculated
+};
+
+struct Instruction {
+  Mnemonic mnemonic;
+  std::list<Operand> operands;
+};
+} // namespace llvm
 #endif
