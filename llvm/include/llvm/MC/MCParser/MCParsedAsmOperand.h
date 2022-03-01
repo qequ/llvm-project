@@ -10,11 +10,9 @@
 #define LLVM_MC_MCPARSER_MCPARSEDASMOPERAND_H
 
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/instruction.h"
 #include "llvm/MC/MCInstrDesc.h"
 #include "llvm/Support/SMLoc.h"
 #include <string>
-#include <list>
 
 namespace llvm {
 
@@ -88,8 +86,6 @@ public:
 
   /// print - Print a debug representation of the operand to the given stream.
   virtual void print(raw_ostream &OS) const = 0;
-
-  virtual void addParsedInstructionToStruct(Instruction &inst) const = 0;
 
   /// dump - Print to the debug stream.
   virtual void dump() const;

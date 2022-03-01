@@ -10,7 +10,6 @@
 #define LLVM_MC_MCPARSER_MCASMPARSER_H
 
 #include "llvm/ADT/None.h"
-#include "llvm/ADT/instruction.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
@@ -21,7 +20,6 @@
 #include <cstdint>
 #include <string>
 #include <utility>
-#include <list>
 
 namespace llvm {
 
@@ -181,8 +179,6 @@ public:
 
   /// Run the parser on the input source buffer.
   virtual bool Run(bool NoInitialTextSection, bool NoFinalize = false) = 0;
-
-  virtual bool myRun(bool NoInitialTextSection, std::list<Instruction> &program, bool NoFinalize = false) = 0;
 
   virtual void setParsingMSInlineAsm(bool V) = 0;
   virtual bool isParsingMSInlineAsm() = 0;

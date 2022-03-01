@@ -459,8 +459,6 @@ public:
 
   bool Run(bool NoInitialTextSection, bool NoFinalize = false) override;
 
-  bool myRun(bool NoInitialTextSection, std::list<Instruction> &program, bool NoFinalize = false) override;
-
   void addDirectiveHandler(StringRef Directive,
                            ExtensionDirectiveHandler Handler) override {
     ExtensionDirectiveMap[Directive] = Handler;
@@ -1313,10 +1311,6 @@ bool MasmParser::enabledGenDwarfForAssembly() {
         RootFile.Checksum, RootFile.Source));
   }
   return true;
-}
-
-bool myRun(bool NoInitialTextSection, std::list<Instruction> &program, bool NoFinalize) {
-  return false;
 }
 
 bool MasmParser::Run(bool NoInitialTextSection, bool NoFinalize) {

@@ -21,7 +21,6 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/instruction.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
@@ -70,7 +69,6 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-#include <list>
 
 using namespace llvm;
 
@@ -190,10 +188,6 @@ private:
 protected:
   virtual bool parseStatement(ParseStatementInfo &Info,
                               MCAsmParserSemaCallback *SI);
-  
-  virtual bool parseStatementWithProgram(ParseStatementInfo &Info,
-                                        std::list<Instruction> &program,
-                                        MCAsmParserSemaCallback *SI);
 
   /// This routine uses the target specific ParseInstruction function to
   /// parse an instruction into Operands, and then call the target specific
@@ -201,10 +195,6 @@ protected:
   bool parseAndMatchAndEmitTargetInstruction(ParseStatementInfo &Info,
                                              StringRef IDVal, AsmToken ID,
                                              SMLoc IDLoc);
-  
-  bool parseTargetInstruction(ParseStatementInfo &Info,
-                                             StringRef IDVal, AsmToken ID,
-                                             SMLoc IDLoc, std::list<Instruction> & program);
 
   /// Should we emit DWARF describing this assembler source?  (Returns false if
   /// the source has .file directives, which means we don't want to generate
@@ -219,8 +209,6 @@ public:
   ~AsmParser() override;
 
   bool Run(bool NoInitialTextSection, bool NoFinalize = false) override;
-
-  bool myRun(bool NoInitialTextSection, std::list<Instruction> &program, bool NoFinalize = false) override;
 
   void addDirectiveHandler(StringRef Directive,
                            ExtensionDirectiveHandler Handler) override {
@@ -966,10 +954,6 @@ bool AsmParser::enabledGenDwarfForAssembly() {
 }
 
 bool AsmParser::Run(bool NoInitialTextSection, bool NoFinalize) {
-  return false;
-}
-
-bool AsmParser::myRun(bool NoInitialTextSection, std::list<Instruction> &program, bool NoFinalize) {
   LTODiscardSymbols.clear();
 
   // Create the initial section, if requested.
@@ -1004,7 +988,7 @@ bool AsmParser::myRun(bool NoInitialTextSection, std::list<Instruction> &program
   // While we have input, parse each statement.
   while (Lexer.isNot(AsmToken::Eof)) {
     ParseStatementInfo Info(&AsmStrRewrites);
-    bool Parsed = parseStatementWithProgram(Info, program, nullptr);
+    bool Parsed = parseStatement(Info, nullptr);
 
     // If we have a Lexer Error we are on an Error Token. Load in Lexer Error
     // for printing ErrMsg via Lex() only if no (presumably better) parser error
@@ -1785,16 +1769,8 @@ bool AsmParser::parseBinOpRHS(unsigned Precedence, const MCExpr *&Res,
 ///   ::= EndOfStatement
 ///   ::= Label* Directive ...Operands... EndOfStatement
 ///   ::= Label* Identifier OperandList* EndOfStatement
-
 bool AsmParser::parseStatement(ParseStatementInfo &Info,
                                MCAsmParserSemaCallback *SI) {
-          return false;
-                                        }
-
-
-bool AsmParser::parseStatementWithProgram(ParseStatementInfo &Info,
-                                        std::list<Instruction> &program,
-                                        MCAsmParserSemaCallback *SI) {
   assert(!hasPendingError() && "parseStatement started with pending error");
   // Eat initial spaces and comments
   while (Lexer.is(AsmToken::Space))
@@ -2333,45 +2309,7 @@ bool AsmParser::parseStatementWithProgram(ParseStatementInfo &Info,
   if (checkForValidSection())
     return true;
 
-  return parseTargetInstruction(Info, IDVal, ID, IDLoc, program);
-}
-
-bool AsmParser::parseTargetInstruction(ParseStatementInfo &Info,
-                                       StringRef IDVal,
-                                       AsmToken ID,
-                                       SMLoc IDLoc, std::list<Instruction> & program) {
-  std::string OpcodeStr = IDVal.lower();
-  ParseInstructionInfo IInfo(Info.AsmRewrites);
-  bool ParseHadError = getTargetParser().ParseInstruction(IInfo, OpcodeStr, ID,
-                                                          Info.ParsedOperands);
-  Info.ParseError = ParseHadError;
-
-  // Dump the parsed representation, if requested.
-  SmallString<256> Str;
-  raw_svector_ostream OS(Str);
-  OS << "parsed instruction: [";
-  for (unsigned i = 0; i != Info.ParsedOperands.size(); ++i) {
-    if (i != 0)
-      OS << ", ";
-    Info.ParsedOperands[i]->print(OS);
-  }
-  OS << "]";
-
-  printMessage(IDLoc, SourceMgr::DK_Note, OS.str());
-
-
-  // Fail even if ParseInstruction erroneously returns false.
-  if (hasPendingError() || ParseHadError)
-    return true;
-
-  Instruction inst;
-  for (unsigned i = 0; i != Info.ParsedOperands.size(); ++i) {
-    Info.ParsedOperands[i]->addParsedInstructionToStruct(inst);
-  }
-
-  program.push_back(inst);
-
-  return false;
+  return parseAndMatchAndEmitTargetInstruction(Info, IDVal, ID, IDLoc);
 }
 
 bool AsmParser::parseAndMatchAndEmitTargetInstruction(ParseStatementInfo &Info,

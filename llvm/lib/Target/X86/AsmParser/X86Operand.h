@@ -15,7 +15,6 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/MC/MCExpr.h"
-#include "llvm/ADT/instruction.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCRegisterInfo.h"
@@ -146,12 +145,6 @@ struct X86Operand final : public MCParsedAsmOperand {
       if (Mem.SegReg)
         OS << ",SegReg=" << X86IntelInstPrinter::getRegisterName(Mem.SegReg);
       break;
-    }
-  }
-
-  void addParsedInstructionToStruct(Instruction &inst) const override {
-    if (Kind == Token) {
-      inst.mnemonic = Tok.Data;
     }
   }
 
