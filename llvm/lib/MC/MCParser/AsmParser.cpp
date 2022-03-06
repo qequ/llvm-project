@@ -21,6 +21,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/instruction.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
@@ -189,6 +190,11 @@ protected:
   virtual bool parseStatement(ParseStatementInfo &Info,
                               MCAsmParserSemaCallback *SI);
 
+  bool parseStatement(ParseStatementInfo &Info,
+                      MCAsmParserSemaCallback *SI,
+                      std::list<Instruction> &program);
+
+
   /// This routine uses the target specific ParseInstruction function to
   /// parse an instruction into Operands, and then call the target specific
   /// MatchAndEmit function to match and emit the instruction.
@@ -209,6 +215,8 @@ public:
   ~AsmParser() override;
 
   bool Run(bool NoInitialTextSection, bool NoFinalize = false) override;
+
+  bool Run(bool NoInitialTextSection, std::list<Instruction>& program, bool NoFinalize = false);
 
   void addDirectiveHandler(StringRef Directive,
                            ExtensionDirectiveHandler Handler) override {
@@ -954,6 +962,11 @@ bool AsmParser::enabledGenDwarfForAssembly() {
 }
 
 bool AsmParser::Run(bool NoInitialTextSection, bool NoFinalize) {
+  std::list<Instruction> program;
+  return Run(NoInitialTextSection, program, NoFinalize);
+}
+
+bool AsmParser::Run(bool NoInitialTextSection, std::list<Instruction>& program, bool NoFinalize) {
   LTODiscardSymbols.clear();
 
   // Create the initial section, if requested.
@@ -988,7 +1001,7 @@ bool AsmParser::Run(bool NoInitialTextSection, bool NoFinalize) {
   // While we have input, parse each statement.
   while (Lexer.isNot(AsmToken::Eof)) {
     ParseStatementInfo Info(&AsmStrRewrites);
-    bool Parsed = parseStatement(Info, nullptr);
+    bool Parsed = parseStatement(Info, nullptr, program);
 
     // If we have a Lexer Error we are on an Error Token. Load in Lexer Error
     // for printing ErrMsg via Lex() only if no (presumably better) parser error
@@ -1771,6 +1784,13 @@ bool AsmParser::parseBinOpRHS(unsigned Precedence, const MCExpr *&Res,
 ///   ::= Label* Identifier OperandList* EndOfStatement
 bool AsmParser::parseStatement(ParseStatementInfo &Info,
                                MCAsmParserSemaCallback *SI) {
+    std::list<Instruction> program;
+    return parseStatement(Info, SI, program);
+}
+
+bool AsmParser::parseStatement(ParseStatementInfo &Info,
+                              MCAsmParserSemaCallback *SI,
+                              std::list<Instruction> &program) {
   assert(!hasPendingError() && "parseStatement started with pending error");
   // Eat initial spaces and comments
   while (Lexer.is(AsmToken::Space))
