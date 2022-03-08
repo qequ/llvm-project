@@ -346,7 +346,7 @@ public:
 
 /// Create an MCAsmParser instance for parsing assembly similar to gas syntax
 MCAsmParser *createMCAsmParser(SourceMgr &, MCContext &, MCStreamer &,
-                               const MCAsmInfo &, unsigned CB = 0);
+                               const MCAsmInfo &, unsigned CB = 0, bool typecheck=false);
 
 /// Create an MCAsmParser instance for parsing Microsoft MASM-style assembly
 MCAsmParser *createMCMasmParser(SourceMgr &, MCContext &, MCStreamer &,
