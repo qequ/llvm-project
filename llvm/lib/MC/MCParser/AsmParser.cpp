@@ -202,6 +202,11 @@ protected:
                                              StringRef IDVal, AsmToken ID,
                                              SMLoc IDLoc);
 
+  virtual bool parsingAlternatives(ParseStatementInfo &Info,
+                                   StringRef IDVal, AsmToken ID,
+                                   SMLoc IDLoc,
+                                   std::list<Instruction> &program);
+
   /// Should we emit DWARF describing this assembler source?  (Returns false if
   /// the source has .file directives, which means we don't want to generate
   /// info describing the assembler source itself.)
@@ -754,6 +759,39 @@ public:
 
   bool parseStatement(ParseStatementInfo &Info,
                       MCAsmParserSemaCallback *SI) override;
+};
+
+class TypecheckingAsmParser final : public AsmParser {
+
+private:
+  MCAsmLexer &Lexer;
+  MCStreamer &Out;
+
+public:
+
+  TypecheckingAsmParser(SourceMgr &SM, MCContext &Ctx, MCStreamer &Out,
+                 const MCAsmInfo &MAI, unsigned CB = 0)
+      : AsmParser(SM, Ctx, Out, MAI, CB), Lexer(getLexer()), Out(Out) {}
+
+  ~TypecheckingAsmParser() {};
+
+  bool parsingAlternatives(ParseStatementInfo &Info,
+                                   StringRef IDVal, AsmToken ID,
+                                   SMLoc IDLoc,
+                                   std::list<Instruction> &program) override {
+
+    return parseAndStoreParsedInstruction(Info, IDVal, ID, IDLoc, program);
+
+  };
+
+  bool parseAndStoreParsedInstruction(ParseStatementInfo &Info,
+                                   StringRef IDVal, AsmToken ID,
+                                   SMLoc IDLoc,
+                                   std::list<Instruction> &program) {
+
+    return false;
+  }
+
 };
 
 } // end anonymous namespace
@@ -2329,7 +2367,16 @@ bool AsmParser::parseStatement(ParseStatementInfo &Info,
   if (checkForValidSection())
     return true;
 
-  return parseAndMatchAndEmitTargetInstruction(Info, IDVal, ID, IDLoc);
+  return parsingAlternatives(Info, IDVal, ID, IDLoc, program);
+}
+
+bool AsmParser::parsingAlternatives(ParseStatementInfo &Info,
+                                   StringRef IDVal, AsmToken ID,
+                                   SMLoc IDLoc,
+                                   std::list<Instruction> &program) {
+    
+    return parseAndMatchAndEmitTargetInstruction(Info, IDVal, ID, IDLoc);
+
 }
 
 bool AsmParser::parseAndMatchAndEmitTargetInstruction(ParseStatementInfo &Info,
@@ -6442,9 +6489,12 @@ bool parseAssignmentExpression(StringRef Name, bool allow_redef,
 /// Create an MCAsmParser instance.
 MCAsmParser *llvm::createMCAsmParser(SourceMgr &SM, MCContext &C,
                                      MCStreamer &Out, const MCAsmInfo &MAI,
-                                     unsigned CB) {
+                                     unsigned CB, bool typecheck) {
   if (C.getTargetTriple().isSystemZ() && C.getTargetTriple().isOSzOS())
     return new HLASMAsmParser(SM, C, Out, MAI, CB);
+
+  if (typecheck)
+    return new TypecheckingAsmParser(SM, C, Out, MAI, CB);
 
   return new AsmParser(SM, C, Out, MAI, CB);
 }
