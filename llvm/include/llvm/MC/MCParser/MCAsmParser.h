@@ -14,12 +14,14 @@
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/instruction.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/MC/MCAsmMacro.h"
 #include "llvm/Support/SMLoc.h"
 #include <cstdint>
 #include <string>
 #include <utility>
+#include <list>
 
 namespace llvm {
 
@@ -179,6 +181,8 @@ public:
 
   /// Run the parser on the input source buffer.
   virtual bool Run(bool NoInitialTextSection, bool NoFinalize = false) = 0;
+
+  virtual bool Run(bool NoInitialTextSection, std::list<Instruction>& program, bool NoFinalize = false) = 0;
 
   virtual void setParsingMSInlineAsm(bool V) = 0;
   virtual bool isParsingMSInlineAsm() = 0;
