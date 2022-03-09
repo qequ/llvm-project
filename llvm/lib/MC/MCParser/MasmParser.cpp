@@ -459,6 +459,8 @@ public:
 
   bool Run(bool NoInitialTextSection, bool NoFinalize = false) override;
 
+  bool Run(bool NoInitialTextSection, std::list<Instruction>& program, bool NoFinalize = false) override;
+
   void addDirectiveHandler(StringRef Directive,
                            ExtensionDirectiveHandler Handler) override {
     ExtensionDirectiveMap[Directive] = Handler;
