@@ -12,6 +12,7 @@
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/instruction.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/instruction.h"
@@ -182,8 +183,6 @@ public:
   /// Run the parser on the input source buffer.
   virtual bool Run(bool NoInitialTextSection, bool NoFinalize = false) = 0;
 
-  virtual bool Run(bool NoInitialTextSection, std::list<Instruction>& program, bool NoFinalize = false) = 0;
-
   virtual void setParsingMSInlineAsm(bool V) = 0;
   virtual bool isParsingMSInlineAsm() = 0;
 
@@ -350,11 +349,14 @@ public:
 
 /// Create an MCAsmParser instance for parsing assembly similar to gas syntax
 MCAsmParser *createMCAsmParser(SourceMgr &, MCContext &, MCStreamer &,
-                               const MCAsmInfo &, unsigned CB = 0, bool typecheck=false);
+                               const MCAsmInfo &, unsigned CB = 0);
 
 /// Create an MCAsmParser instance for parsing Microsoft MASM-style assembly
 MCAsmParser *createMCMasmParser(SourceMgr &, MCContext &, MCStreamer &,
                                 const MCAsmInfo &, struct tm, unsigned CB = 0);
+
+MCAsmParser *createTypecheckerAsmParser(SourceMgr &, MCContext &, MCStreamer &,
+                               const MCAsmInfo &, std::list<Instruction> &, unsigned CB = 0);
 
 } // end namespace llvm
 
