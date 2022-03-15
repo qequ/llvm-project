@@ -190,11 +190,6 @@ protected:
   virtual bool parseStatement(ParseStatementInfo &Info,
                               MCAsmParserSemaCallback *SI);
 
-  bool parseStatement(ParseStatementInfo &Info,
-                      MCAsmParserSemaCallback *SI,
-                      std::list<Instruction> &program);
-
-
   /// This routine uses the target specific ParseInstruction function to
   /// parse an instruction into Operands, and then call the target specific
   /// MatchAndEmit function to match and emit the instruction.
@@ -202,15 +197,22 @@ protected:
                                              StringRef IDVal, AsmToken ID,
                                              SMLoc IDLoc);
 
+  /// template method to let the Typechecker subclass replace the method
+  /// parseAndMatchAndEmitTargetInstruction with parseAndMatchAndEmitTargetInstruction
   virtual bool parsingAlternatives(ParseStatementInfo &Info,
                                    StringRef IDVal, AsmToken ID,
-                                   SMLoc IDLoc,
-                                   std::list<Instruction> &program);
+                                   SMLoc IDLoc);
 
   /// Should we emit DWARF describing this assembler source?  (Returns false if
   /// the source has .file directives, which means we don't want to generate
   /// info describing the assembler source itself.)
   bool enabledGenDwarfForAssembly();
+
+  void printMessage(SMLoc Loc, SourceMgr::DiagKind Kind, const Twine &Msg,
+                    SMRange Range = None) const {
+    ArrayRef<SMRange> Ranges(Range);
+    SrcMgr.PrintMessage(Loc, Kind, Msg, Ranges);
+  }
 
 public:
   AsmParser(SourceMgr &SM, MCContext &Ctx, MCStreamer &Out,
@@ -220,8 +222,6 @@ public:
   ~AsmParser() override;
 
   bool Run(bool NoInitialTextSection, bool NoFinalize = false) override;
-
-  bool Run(bool NoInitialTextSection, std::list<Instruction>& program, bool NoFinalize = false);
 
   void addDirectiveHandler(StringRef Directive,
                            ExtensionDirectiveHandler Handler) override {
@@ -336,11 +336,7 @@ private:
   bool parseMacroArguments(const MCAsmMacro *M, MCAsmMacroArguments &A);
 
   void printMacroInstantiations();
-  void printMessage(SMLoc Loc, SourceMgr::DiagKind Kind, const Twine &Msg,
-                    SMRange Range = None) const {
-    ArrayRef<SMRange> Ranges(Range);
-    SrcMgr.PrintMessage(Loc, Kind, Msg, Ranges);
-  }
+
   static void DiagHandler(const SMDiagnostic &Diag, void *Context);
 
   /// Enter the specified file. This returns true on failure.
@@ -766,31 +762,65 @@ class TypecheckingAsmParser final : public AsmParser {
 private:
   MCAsmLexer &Lexer;
   MCStreamer &Out;
+  std::list<Instruction> & program_reference;
+
+  bool parseAndStoreParsedInstruction(ParseStatementInfo &Info,
+                                   StringRef IDVal, AsmToken ID,
+                                   SMLoc IDLoc) {
+
+  std::string OpcodeStr = IDVal.lower();
+  ParseInstructionInfo IInfo(Info.AsmRewrites);
+  bool ParseHadError = getTargetParser().ParseInstruction(IInfo, OpcodeStr, ID,
+                                                          Info.ParsedOperands);
+  Info.ParseError = ParseHadError;
+
+  // Dump the parsed representation, if requested.
+  SmallString<256> Str;
+  raw_svector_ostream OS(Str);
+  OS << "parsed instruction: [";
+  for (unsigned i = 0; i != Info.ParsedOperands.size(); ++i) {
+    if (i != 0)
+      OS << ", ";
+    Info.ParsedOperands[i]->print(OS);
+  }
+  OS << "]";
+
+  printMessage(IDLoc, SourceMgr::DK_Note, OS.str());
+
+
+  // Fail even if ParseInstruction erroneously returns false.
+  if (hasPendingError() || ParseHadError)
+    return true;
+
+  /*
+  Instruction inst;
+  for (unsigned i = 0; i != Info.ParsedOperands.size(); ++i) {
+    Info.ParsedOperands[i]->addParsedInstructionToStruct(inst);
+  }
+
+  program.push_back(inst);
+
+  */
+  return false;
+
+  }
+
 
 public:
 
   TypecheckingAsmParser(SourceMgr &SM, MCContext &Ctx, MCStreamer &Out,
-                 const MCAsmInfo &MAI, unsigned CB = 0)
-      : AsmParser(SM, Ctx, Out, MAI, CB), Lexer(getLexer()), Out(Out) {}
+                 const MCAsmInfo &MAI, std::list<Instruction>  &program,unsigned CB = 0)
+      : AsmParser(SM, Ctx, Out, MAI, CB), Lexer(getLexer()), Out(Out), program_reference(program) {}
 
   ~TypecheckingAsmParser() {};
 
   bool parsingAlternatives(ParseStatementInfo &Info,
                                    StringRef IDVal, AsmToken ID,
-                                   SMLoc IDLoc,
-                                   std::list<Instruction> &program) override {
+                                   SMLoc IDLoc) override {
 
-    return parseAndStoreParsedInstruction(Info, IDVal, ID, IDLoc, program);
+    return parseAndStoreParsedInstruction(Info, IDVal, ID, IDLoc);
 
   };
-
-  bool parseAndStoreParsedInstruction(ParseStatementInfo &Info,
-                                   StringRef IDVal, AsmToken ID,
-                                   SMLoc IDLoc,
-                                   std::list<Instruction> &program) {
-
-    return false;
-  }
 
 };
 
@@ -999,12 +1029,8 @@ bool AsmParser::enabledGenDwarfForAssembly() {
   return true;
 }
 
-bool AsmParser::Run(bool NoInitialTextSection, bool NoFinalize) {
-  std::list<Instruction> program;
-  return Run(NoInitialTextSection, program, NoFinalize);
-}
 
-bool AsmParser::Run(bool NoInitialTextSection, std::list<Instruction>& program, bool NoFinalize) {
+bool AsmParser::Run(bool NoInitialTextSection, bool NoFinalize) {
   LTODiscardSymbols.clear();
 
   // Create the initial section, if requested.
@@ -1039,7 +1065,7 @@ bool AsmParser::Run(bool NoInitialTextSection, std::list<Instruction>& program, 
   // While we have input, parse each statement.
   while (Lexer.isNot(AsmToken::Eof)) {
     ParseStatementInfo Info(&AsmStrRewrites);
-    bool Parsed = parseStatement(Info, nullptr, program);
+    bool Parsed = parseStatement(Info, nullptr);
 
     // If we have a Lexer Error we are on an Error Token. Load in Lexer Error
     // for printing ErrMsg via Lex() only if no (presumably better) parser error
@@ -1821,14 +1847,7 @@ bool AsmParser::parseBinOpRHS(unsigned Precedence, const MCExpr *&Res,
 ///   ::= Label* Directive ...Operands... EndOfStatement
 ///   ::= Label* Identifier OperandList* EndOfStatement
 bool AsmParser::parseStatement(ParseStatementInfo &Info,
-                               MCAsmParserSemaCallback *SI) {
-    std::list<Instruction> program;
-    return parseStatement(Info, SI, program);
-}
-
-bool AsmParser::parseStatement(ParseStatementInfo &Info,
-                              MCAsmParserSemaCallback *SI,
-                              std::list<Instruction> &program) {
+                              MCAsmParserSemaCallback *SI) {
   assert(!hasPendingError() && "parseStatement started with pending error");
   // Eat initial spaces and comments
   while (Lexer.is(AsmToken::Space))
@@ -2367,13 +2386,12 @@ bool AsmParser::parseStatement(ParseStatementInfo &Info,
   if (checkForValidSection())
     return true;
 
-  return parsingAlternatives(Info, IDVal, ID, IDLoc, program);
+  return parsingAlternatives(Info, IDVal, ID, IDLoc);
 }
 
 bool AsmParser::parsingAlternatives(ParseStatementInfo &Info,
                                    StringRef IDVal, AsmToken ID,
-                                   SMLoc IDLoc,
-                                   std::list<Instruction> &program) {
+                                   SMLoc IDLoc) {
     
     return parseAndMatchAndEmitTargetInstruction(Info, IDVal, ID, IDLoc);
 
@@ -6489,12 +6507,16 @@ bool parseAssignmentExpression(StringRef Name, bool allow_redef,
 /// Create an MCAsmParser instance.
 MCAsmParser *llvm::createMCAsmParser(SourceMgr &SM, MCContext &C,
                                      MCStreamer &Out, const MCAsmInfo &MAI,
-                                     unsigned CB, bool typecheck) {
+                                     unsigned CB) {
   if (C.getTargetTriple().isSystemZ() && C.getTargetTriple().isOSzOS())
     return new HLASMAsmParser(SM, C, Out, MAI, CB);
 
-  if (typecheck)
-    return new TypecheckingAsmParser(SM, C, Out, MAI, CB);
-
   return new AsmParser(SM, C, Out, MAI, CB);
+}
+
+
+MCAsmParser *llvm::createTypecheckerAsmParser(SourceMgr &SM, MCContext &C,
+                                     MCStreamer &Out, const MCAsmInfo &MAI, std::list<Instruction> & program,
+                                     unsigned CB) {
+    return new TypecheckingAsmParser(SM, C, Out, MAI, program, CB);
 }
