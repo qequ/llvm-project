@@ -293,8 +293,10 @@ static int AssembleInput(const char *ProgName, const Target *TheTarget,
                          SourceMgr &SrcMgr, MCContext &Ctx, MCStreamer &Str,
                          MCAsmInfo &MAI, MCSubtargetInfo &STI,
                          MCInstrInfo &MCII, MCTargetOptions const &MCOptions) {
+  std::list<Instruction> program;
+
   std::unique_ptr<MCAsmParser> Parser(
-      createMCAsmParser(SrcMgr, Ctx, Str, MAI, 0, true));
+      createTypecheckerAsmParser(SrcMgr, Ctx, Str, MAI, program));
   std::unique_ptr<MCTargetAsmParser> TAP(
       TheTarget->createMCAsmParser(STI, *Parser, MCII, MCOptions));
 
@@ -313,9 +315,8 @@ static int AssembleInput(const char *ProgName, const Target *TheTarget,
   Parser->getLexer().setLexMasmHexFloats(LexMasmHexFloats);
   Parser->getLexer().setLexMotorolaIntegers(LexMotorolaIntegers);
 
-  std::list<Instruction> program;
 
-  int Res = Parser->Run(NoInitialTextSection, program);
+  int Res = Parser->Run(NoInitialTextSection);
 
 
   for (auto ins: program) {
