@@ -787,6 +787,12 @@ private:
 
   printMessage(IDLoc, SourceMgr::DK_Note, OS.str());
 
+  Instruction inst;
+  for (unsigned i = 0; i != Info.ParsedOperands.size(); ++i) {
+    Info.ParsedOperands[i]->addParsedInstructionToStruct(inst);
+  }
+
+  program_reference.push_back(inst);
 
   // Fail even if ParseInstruction erroneously returns false.
   if (hasPendingError() || ParseHadError)
