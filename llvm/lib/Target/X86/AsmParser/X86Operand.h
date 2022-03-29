@@ -14,6 +14,7 @@
 #include "X86AsmParserCommon.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/instruction.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCParser/MCParsedAsmOperand.h"
@@ -148,6 +149,77 @@ struct X86Operand final : public MCParsedAsmOperand {
     }
   }
 
+  void addParsedInstructionToStruct(Instruction &inst) const override {
+    Operand oper;
+
+    auto GetImmValue = [&](const MCExpr *Val) {
+      if (Val->getKind() == MCExpr::Constant) {
+        if (auto Imm = cast<MCConstantExpr>(Val)->getValue())
+          return Imm;
+      }
+    };
+
+    switch (Kind) {
+    case Token: {
+      inst.mnemonic = Tok.Data;
+      break;
+    }
+
+    case Register: {
+      const char *regName = X86IntelInstPrinter::getRegisterName(Reg.RegNo);
+      if (std::strcmp(regName, "eax") == 0)
+        oper.operandData = X86Registers::eax;
+      if (std::strcmp(regName, "ebx") == 0)
+        oper.operandData = X86Registers::ebx;
+      if (std::strcmp(regName, "ecx") == 0)
+        oper.operandData = X86Registers::ecx;
+      if (std::strcmp(regName, "edx") == 0)
+        oper.operandData = X86Registers::edx;
+      if (std::strcmp(regName, "rax") == 0)
+        oper.operandData = X86Registers::rax;
+      if (std::strcmp(regName, "rbx") == 0)
+        oper.operandData = X86Registers::rbx;
+      if (std::strcmp(regName, "rcx") == 0)
+        oper.operandData = X86Registers::rcx;
+      if (std::strcmp(regName, "rdi") == 0)
+        oper.operandData = X86Registers::rdi;
+      if (std::strcmp(regName, "rsi") == 0)
+        oper.operandData = X86Registers::rsi;
+      if (std::strcmp(regName, "ax") == 0)
+        oper.operandData = X86Registers::ax;
+      if (std::strcmp(regName, "bx") == 0)
+        oper.operandData = X86Registers::bx;
+      if (std::strcmp(regName, "cx") == 0)
+        oper.operandData = X86Registers::cx;
+      if (std::strcmp(regName, "dx") == 0)
+        oper.operandData = X86Registers::dx;
+      if (std::strcmp(regName, "al") == 0)
+        oper.operandData = X86Registers::al;
+      if (std::strcmp(regName, "bl") == 0)
+        oper.operandData = X86Registers::bl;
+      if (std::strcmp(regName, "cl") == 0)
+        oper.operandData = X86Registers::cl;
+      if (std::strcmp(regName, "dl") == 0)
+        oper.operandData = X86Registers::dl;
+      if (std::strcmp(regName, "ah") == 0)
+        oper.operandData = X86Registers::ah;
+      if (std::strcmp(regName, "bh") == 0)
+        oper.operandData = X86Registers::bh;
+      if (std::strcmp(regName, "ch") == 0)
+        oper.operandData = X86Registers::ch;
+      if (std::strcmp(regName, "dh") == 0)
+        oper.operandData = X86Registers::dh;
+
+      inst.operands.push_back(oper);
+      break;
+    }
+    case Immediate: {
+      oper.operandData = (ImmediateInteger)GetImmValue(Imm.Val);
+      inst.operands.push_back(oper);
+      break;
+    }
+    }
+  }
   StringRef getToken() const {
     assert(Kind == Token && "Invalid access!");
     return StringRef(Tok.Data, Tok.Length);
