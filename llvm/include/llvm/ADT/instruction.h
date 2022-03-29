@@ -12,13 +12,35 @@ using Mnemonic = std::string;
 enum class X86Registers {
   rdi,
   rsi,
+  
   ax,
   bx,
   cx,
   dx,
-  bp,
-  sp
-  // add more later
+  
+  al,
+  bl,
+  cl,
+  dl,
+
+  rbp,
+  rsp,
+  
+  eax,
+  ebx,
+  ecx,
+  edx,
+  
+  rax,
+  rbx,
+  rcx,
+  rdx,
+  
+  ah,
+  bh,
+  ch,
+  dh
+
 };
 
 using ImmediateInteger = uint64_t;
