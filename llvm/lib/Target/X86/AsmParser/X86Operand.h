@@ -38,6 +38,15 @@ struct X86Operand final : public MCParsedAsmOperand {
   void *OpDecl;
   bool AddressOf;
 
+  union parsedOpUnion {
+    uint64_t int_data;
+    const char * str_data;
+  };
+  struct ParsedOp {
+    KindTy k;
+    parsedOpUnion data;
+  };
+
   struct TokOp {
     const char *Data;
     unsigned Length;
@@ -147,6 +156,38 @@ struct X86Operand final : public MCParsedAsmOperand {
         OS << ",SegReg=" << X86IntelInstPrinter::getRegisterName(Mem.SegReg);
       break;
     }
+  }
+
+  ParsedOp getParsedOP() {
+    auto GetImmValue = [&](const MCExpr *Val) {
+      if (Val->getKind() == MCExpr::Constant) {
+        if (auto Imm = cast<MCConstantExpr>(Val)->getValue())
+          return Imm;
+      }
+    };
+
+    ParsedOp po;
+    po.k = Kind;
+
+    switch (Kind)
+    {
+    case Token: {
+      po.data.str_data = Tok.Data;
+      break;
+    }
+
+    case Register: {
+      po.data.str_data = X86IntelInstPrinter::getRegisterName(Reg.RegNo);
+    }
+
+    case Immediate: {
+      po.data.int_data = (ImmediateInteger)GetImmValue(Imm.Val);
+    }
+    default:
+      break;
+    }
+
+    return po;
   }
 
   void addParsedInstructionToStruct(Instruction &inst) const override {
