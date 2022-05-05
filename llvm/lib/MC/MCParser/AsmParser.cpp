@@ -757,12 +757,14 @@ public:
                       MCAsmParserSemaCallback *SI) override;
 };
 
-class TypecheckingAsmParser final : public AsmParser {
+class TypecheckingAsmParser : public AsmParser {
 
 private:
   MCAsmLexer &Lexer;
   MCStreamer &Out;
   std::list<Instruction> & program_reference;
+
+  virtual void saveParsedInstruction() = 0;
 
   bool parseAndStoreParsedInstruction(ParseStatementInfo &Info,
                                    StringRef IDVal, AsmToken ID,
@@ -787,26 +789,8 @@ private:
 
   printMessage(IDLoc, SourceMgr::DK_Note, OS.str());
 
-  Instruction inst;
-  for (unsigned i = 0; i != Info.ParsedOperands.size(); ++i) {
-    Info.ParsedOperands[i]->addParsedInstructionToStruct(inst);
-  }
+  saveParsedInstruction();
 
-  program_reference.push_back(inst);
-
-  // Fail even if ParseInstruction erroneously returns false.
-  if (hasPendingError() || ParseHadError)
-    return true;
-
-  /*
-  Instruction inst;
-  for (unsigned i = 0; i != Info.ParsedOperands.size(); ++i) {
-    Info.ParsedOperands[i]->addParsedInstructionToStruct(inst);
-  }
-
-  program.push_back(inst);
-
-  */
   return false;
 
   }
@@ -827,6 +811,21 @@ public:
     return parseAndStoreParsedInstruction(Info, IDVal, ID, IDLoc);
 
   };
+
+};
+
+class x86TypecheckingAsmParser : TypecheckingAsmParser {
+
+private:
+  void saveParsedInstruction() {
+
+  }
+
+public:
+  x86TypecheckingAsmParser(SourceMgr &SM, MCContext &Ctx, MCStreamer &Out,
+                 const MCAsmInfo &MAI, std::list<Instruction>  &program,unsigned CB = 0) 
+        : TypecheckingAsmParser(SM, Ctx, Out, MAI, program, CB)  {}
+
 
 };
 
@@ -6524,5 +6523,5 @@ MCAsmParser *llvm::createMCAsmParser(SourceMgr &SM, MCContext &C,
 MCAsmParser *llvm::createTypecheckerAsmParser(SourceMgr &SM, MCContext &C,
                                      MCStreamer &Out, const MCAsmInfo &MAI, std::list<Instruction> & program,
                                      unsigned CB) {
-    return new TypecheckingAsmParser(SM, C, Out, MAI, program, CB);
+    return new x86TypecheckingAsmParser(SM, C, Out, MAI, program, CB);
 }
