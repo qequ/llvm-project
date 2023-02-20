@@ -113,6 +113,13 @@ struct ParseStatementInfo {
     : AsmRewrites(rewrites) {}
 };
 
+// struct to keep the identifier and the type set by the .settype directive
+struct SetType {
+  StringRef Identifier;
+  StringRef Type;
+};
+
+
 /// The concrete assembly parser instance.
 class AsmParser : public MCAsmParser {
 private:
@@ -125,6 +132,10 @@ private:
   void *SavedDiagContext;
   std::unique_ptr<MCAsmParserExtension> PlatformParser;
   SMLoc StartTokLoc;
+
+  // keep a list of all the identifiers and their types set by the .settype
+  // directive
+  std::vector<SetType> setTypeVec;
 
   /// This is the current buffer index we're lexing from as managed by the
   /// SourceMgr object.
@@ -379,6 +390,7 @@ private:
   // Generic (target and platform independent) directive parsing.
   enum DirectiveKind {
     DK_NO_DIRECTIVE, // Placeholder
+    DK_SETTYPE,
     DK_SET,
     DK_EQU,
     DK_EQUIV,
@@ -574,6 +586,7 @@ private:
   bool parseDirectiveZero(); // ".zero"
   // ".set", ".equ", ".equiv", ".lto_set_conditional"
   bool parseDirectiveSet(StringRef IDVal, AssignmentKind Kind);
+  bool parseDirectiveSetType(StringRef IDVal); // ".set_type"
   bool parseDirectiveOrg(); // ".org"
   // ".align{,32}", ".p2align{,w,l}"
   bool parseDirectiveAlign(bool IsPow2, unsigned ValueSize);
@@ -2027,6 +2040,8 @@ bool AsmParser::parseStatement(ParseStatementInfo &Info,
     switch (DirKind) {
     default:
       break;
+    case DK_SETTYPE:
+      return parseDirectiveSetType(IDVal);
     case DK_SET:
     case DK_EQU:
       return parseDirectiveSet(IDVal, AssignmentKind::Set);
@@ -3013,6 +3028,33 @@ bool AsmParser::parseIdentifier(StringRef &Res) {
   Lex(); // Consume the identifier token.
 
   return false;
+}
+
+
+
+// parseDirectiveSettype - .settype <name>, <type>
+bool AsmParser::parseDirectiveSetType(StringRef IDVal) {
+  StringRef Name;
+  if (check(parseIdentifier(Name), "expected identifier") || parseComma() ||
+      check(getTok().isNot(AsmToken::String), "expected string"))
+    return false;
+
+  // get the type string
+  StringRef Type = getTok().getStringContents();
+
+  // check Type is "pointer" or "number"
+  if (Type != "pointer" && Type != "number") {
+    llvm::errs() << "Error: Type must be \"pointer\" or \"number\"! ";
+    return false;
+  }
+
+  // create a setType struct and keep it in a vector
+  SetType st;
+  st.Identifier = Name;
+  st.Type = Type;
+  setTypeVec.push_back(st);
+
+  return true;
 }
 
 /// parseDirectiveSet:
@@ -5433,6 +5475,7 @@ void AsmParser::initializeDirectiveKindMap() {
    * (target specific directives are handled
    *  elsewhere)
    */
+  DirectiveKindMap[".settype"] = DK_SETTYPE;
   DirectiveKindMap[".set"] = DK_SET;
   DirectiveKindMap[".equ"] = DK_EQU;
   DirectiveKindMap[".equiv"] = DK_EQUIV;
