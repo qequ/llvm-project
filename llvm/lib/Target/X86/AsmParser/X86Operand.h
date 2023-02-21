@@ -107,6 +107,10 @@ struct X86Operand final : public MCParsedAsmOperand {
   /// getOffsetOfLoc - Get the location of the offset operator.
   SMLoc getOffsetOfLoc() const override { return OffsetOfLoc; }
 
+  void addRegOperands(std::vector<std::string> &Ops) const override {
+    llvm_unreachable("Not implemented");
+  }
+
   void print(raw_ostream &OS) const override {
 
     auto PrintImmValue = [&](const MCExpr *Val, const char *VName) {
