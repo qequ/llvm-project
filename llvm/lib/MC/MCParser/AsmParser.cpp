@@ -23,6 +23,8 @@
 #include "llvm/ADT/Twine.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
+#include "llvm/MC/MCSubtargetInfo.h"
+
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCCodeView.h"
 #include "llvm/MC/MCContext.h"
@@ -209,6 +211,11 @@ protected:
   // template method to parse an instruction
   virtual bool handleParseInstruction(ParseStatementInfo &Info, StringRef IDVal,
                               AsmToken ID, SMLoc IDLoc);
+  
+  virtual void handleLabel(StringRef IDVal, SMLoc IDLoc) {
+      llvm::outs() << "Emitting label " << IDVal;
+
+  };
 
   /// Should we emit DWARF describing this assembler source?  (Returns false if
   /// the source has .file directives, which means we don't want to generate
@@ -743,10 +750,28 @@ private:
 class TypecheckingAsmParser : public AsmParser {
 
 private:
+  // keep a vector of vector of strings to store the parsed operands
+  std::vector<std::vector<std::string>> ParsedOperands;
+
   MCAsmLexer &Lexer;
   MCStreamer &Out;
 
   //virtual void saveParsedInstruction() = 0;
+
+  void handleLabel(StringRef IDVal, SMLoc IDLoc) override {
+    // create a vector that safes as first element "label" and the second IDVal
+    std::vector<std::string> Label;
+    Label.push_back("label");
+
+    // convert llvm StringRef to std::string
+    std::string IDValStr(IDVal.str());
+    Label.push_back(IDValStr);
+
+    // push the vector to the vector of vectors
+    ParsedOperands.push_back(Label);
+
+  }
+
 
   bool parseAndStoreParsedInstruction(ParseStatementInfo &Info,
                                    StringRef IDVal, AsmToken ID,
@@ -761,14 +786,25 @@ private:
   // Dump the parsed representation, if requested.
   SmallString<256> Str;
   raw_svector_ostream OS(Str);
+  // create STI variable
+  MCSubtargetInfo &STI =
+      const_cast<MCSubtargetInfo &>(getTargetParser().getSTI());
+    // print sti.cpu
+  OS << "STI.cpu: " << STI.getCPU() << " ";
+  
+  // create a vector of strings to store the parsed operands
+  std::vector<std::string> parsedOps;
+
   OS << "parsed instruction: [";
   for (unsigned i = 0; i != Info.ParsedOperands.size(); ++i) {
     if (i != 0)
       OS << ", ";
     Info.ParsedOperands[i]->print(OS);
+    Info.ParsedOperands[i]->storeValue(parsedOps);
   }
   OS << "]";
 
+  ParsedOperands.push_back(parsedOps);
   printMessage(IDLoc, SourceMgr::DK_Note, OS.str());
 
   //saveParsedInstruction();
@@ -2031,6 +2067,7 @@ bool AsmParser::parseStatement(ParseStatementInfo &Info,
 
     // Emit the label.
     if (!getTargetParser().isParsingMSInlineAsm())
+      handleLabel(IDVal, IDLoc);
       Out.emitLabel(Sym, IDLoc);
 
     // If we are generating dwarf for assembly source files then gather the
@@ -6554,6 +6591,6 @@ MCAsmParser *llvm::createMCAsmParser(SourceMgr &SM, MCContext &C,
                                      unsigned CB) {
   if (C.getTargetTriple().isSystemZ() && C.getTargetTriple().isOSzOS())
     return new HLASMAsmParser(SM, C, Out, MAI, CB);
-
+  llvm::outs() << "Creating TypecheckingAsmParser\n";
   return new TypecheckingAsmParser(SM, C, Out, MAI, CB);
 }
