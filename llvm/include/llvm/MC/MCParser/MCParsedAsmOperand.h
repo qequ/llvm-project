@@ -12,6 +12,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/SMLoc.h"
 #include <string>
+#include <vector>
 
 namespace llvm {
 
@@ -89,8 +90,8 @@ public:
   /// print - Print a debug representation of the operand to the given stream.
   virtual void print(raw_ostream &OS) const = 0;
 
-  /// addRegOperands - Add the operands string representation to the given list.
-  virtual void addRegOperands(std::vector<std::string> &Ops) const = 0;
+  /// storeValue - Store the value of the operand string into a vector
+  virtual void storeValue(std::vector<std::string>& storage ) const = 0;
 
   /// dump - Print to the debug stream.
   virtual void dump() const;

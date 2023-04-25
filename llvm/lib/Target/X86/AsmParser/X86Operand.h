@@ -23,6 +23,8 @@
 #include "llvm/Support/SMLoc.h"
 #include <cassert>
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace llvm {
 
@@ -107,8 +109,34 @@ struct X86Operand final : public MCParsedAsmOperand {
   /// getOffsetOfLoc - Get the location of the offset operator.
   SMLoc getOffsetOfLoc() const override { return OffsetOfLoc; }
 
-  void addRegOperands(std::vector<std::string> &Ops) const override {
-    llvm_unreachable("Not implemented");
+  void storeValue(std::vector<std::string>& storage ) const override {
+    // switch over kind and store the value in the storage vector
+    std::string tokenstr;
+    std::string regstr;
+    switch (Kind) {
+      case Token:
+        tokenstr = std::string(Tok.Data, Tok.Length);
+        storage.push_back(tokenstr);
+        break;
+      case Register:
+        regstr = X86IntelInstPrinter::getRegisterName(Reg.RegNo);
+        storage.push_back(regstr);
+        break;
+      case Immediate:
+        storage.push_back("Imm");
+        break;
+      case Memory:
+        if (Mem.BaseReg){
+          regstr = X86IntelInstPrinter::getRegisterName(Mem.BaseReg);
+          storage.push_back(regstr);
+        }
+        break;
+      case Prefix:
+        break;
+      case DXRegister:
+        break;
+      
+      }
   }
 
   void print(raw_ostream &OS) const override {
