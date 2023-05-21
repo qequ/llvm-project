@@ -217,6 +217,14 @@ protected:
 
   };
 
+  virtual void handleSetTypeDirective(StringRef IDVal, StringRef Type) {
+    llvm::outs() << "Setting type of " << IDVal << " to " << Type;
+    SetType setType;
+    setType.Identifier = IDVal;
+    setType.Type = Type;
+    setTypeVec.push_back(setType);
+  };
+
   /// Should we emit DWARF describing this assembler source?  (Returns false if
   /// the source has .file directives, which means we don't want to generate
   /// info describing the assembler source itself.)
@@ -772,6 +780,23 @@ private:
 
   }
 
+  void handleSetTypeDirective(StringRef IDVal, StringRef Type) override {
+    // create a vector that saves as first element "settype" and the second and third IDVal and Type
+    std::vector<std::string> SetType;
+    SetType.push_back("settype");
+
+    // convert llvm StringRef to std::string
+    std::string IDValStr(IDVal.str());
+    SetType.push_back(IDValStr);
+
+    // convert llvm StringRef to std::string
+    std::string TypeStr(Type.str());
+    SetType.push_back(TypeStr);
+
+    // push the vector to the vector of vectors
+    ParsedOperands.push_back(SetType);
+  }
+
 
   bool parseAndStoreParsedInstruction(ParseStatementInfo &Info,
                                    StringRef IDVal, AsmToken ID,
@@ -827,6 +852,11 @@ public:
 
     return parseAndStoreParsedInstruction(Info, IDVal, ID, IDLoc);
 
+  };
+
+  // virtual method dumpParsingtokens to implement by typecheck assembler
+  void dumpParsingTokens(std::vector<std::vector<std::string>> &tokens) override {
+    tokens = ParsedOperands;
   };
 
 };
@@ -3154,11 +3184,7 @@ bool AsmParser::parseDirectiveSetType(StringRef IDVal) {
     return false;
   }
 
-  // create a setType struct and keep it in a vector
-  SetType st;
-  st.Identifier = Name;
-  st.Type = Type;
-  setTypeVec.push_back(st);
+  handleSetTypeDirective(Name, Type);
 
   return true;
 }
