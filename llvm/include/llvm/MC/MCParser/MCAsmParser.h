@@ -126,6 +126,9 @@ public:
   using ExtensionDirectiveHandler =
       std::pair<MCAsmParserExtension*, DirectiveHandler>;
 
+  // virtual method dumpParsingtokens to implement by typecheck assembler
+  virtual void dumpParsingTokens(std::vector<std::vector<std::string>> &tokens){};
+
   struct MCPendingError {
     SMLoc Loc;
     SmallString<64> Msg;
