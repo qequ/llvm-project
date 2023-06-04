@@ -120,6 +120,8 @@ struct X86Operand final : public MCParsedAsmOperand {
         break;
       case Register:
         regstr = X86IntelInstPrinter::getRegisterName(Reg.RegNo);
+        // form a string of the form "Reg:regstr"
+        regstr = "Reg:" + regstr;
         storage.push_back(regstr);
         break;
       case Immediate:
@@ -128,6 +130,14 @@ struct X86Operand final : public MCParsedAsmOperand {
       case Memory:
         if (Mem.BaseReg){
           regstr = X86IntelInstPrinter::getRegisterName(Mem.BaseReg);
+          // form a string of the form "Mem:regstr"
+          regstr = "Mem:" + regstr;
+          storage.push_back(regstr);
+        }
+        if (Mem.IndexReg){
+          regstr = X86IntelInstPrinter::getRegisterName(Mem.IndexReg);
+          // form a string of the form "Mem:regstr"
+          regstr = "Mem:" + regstr;
           storage.push_back(regstr);
         }
         break;
