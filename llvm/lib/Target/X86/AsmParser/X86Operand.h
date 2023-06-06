@@ -125,11 +125,31 @@ struct X86Operand final : public MCParsedAsmOperand {
         storage.push_back(regstr);
         break;
       case Immediate:
-        storage.push_back("Imm");
+        storage.push_back("Reg:Imm");
         break;
       case Memory:
         if (Mem.BaseReg){
           regstr = X86IntelInstPrinter::getRegisterName(Mem.BaseReg);
+          // if regstr is rbp, get the Disp and add it to the string
+          if (regstr == "rbp"){
+            const MCConstantExpr *CE = dyn_cast<MCConstantExpr>(getMemDisp());
+            if (CE){
+              int64_t disp = CE->getValue();
+              // check if disp is negative
+              if (disp < 0){
+                // if so, add a "-" to the string
+                regstr = regstr + "-" + std::to_string(-disp);
+              }
+              else{
+                // if not, add a "+" to the string
+                regstr = regstr + "+" + std::to_string(disp);
+              }
+              //regstr = regstr + "+" + std::to_string(disp);
+            }
+            regstr = "Reg:" + regstr;
+            storage.push_back(regstr);
+            break;
+          }
           // form a string of the form "Mem:regstr"
           regstr = "Mem:" + regstr;
           storage.push_back(regstr);
