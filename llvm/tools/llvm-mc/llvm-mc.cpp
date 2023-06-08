@@ -38,6 +38,7 @@
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/WithColor.h"
 #include "llvm/TargetParser/Host.h"
+#include "qequinstructions.h"
 
 using namespace llvm;
 
@@ -342,6 +343,25 @@ static int AssembleInput(const char *ProgName, const Target *TheTarget,
   Parser->getLexer().setLexMotorolaIntegers(LexMotorolaIntegers);
 
   int Res = Parser->Run(NoInitialTextSection);
+
+  // create a vector of vector of strings to hold the output of the
+  // parser.  Each entry in the top level vector is a line of output
+  std::vector<std::vector<std::string>> Output;
+  Parser->dumpParsingTokens(Output);
+
+  // iterate over the output and print it
+  for (auto &Line : Output) {
+    for (auto &Token : Line) {
+      WithColor::note() << Token << " ";
+    }
+    WithColor::note() << "\n";
+  }
+  QProgram QP;
+  QP.convertToQInstructionChain(Output);
+  QP.printRegisters();
+  QP.print();
+
+  QP.typeCheckProgram();
 
   return Res;
 }
