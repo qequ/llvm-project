@@ -140,32 +140,21 @@ namespace typeChecking
         // call mnemonic constructor to set src and dest
         Mov(const std::string& src, const bool srcMemOp, const std::string& dest) : Mnemonic(src, dest), srcMemOp(srcMemOp) {}
 
-        void analyze_dest_number(AbstractEnvironment *hash) const override
-        {
-            if (srcMemOp)
-            {
-                // trying to make indirection of a number - error
-                throw std::runtime_error("type check error");
+        void analyze_mnemonic(AbstractEnvironment *hash) override {
+            // it the src is a memory operation and src is a pointer
+            if (srcMemOp) {
+                // if src is a number throw error
+                if (hash->get(src).equals(NumberDomain(0))) {
+                    throw std::runtime_error("type check error");
+                }
+                // if src is a pointer set the dest to a number
+                    hash->set(dest, NumberDomain(0));
             }
-            else
-            {
+            else {
+                // set the src to the dest
                 hash->set(dest, hash->get(src));
             }
-        };
-
-        void analyze_dest_pointer(AbstractEnvironment *hash) const override
-        {
-            if (srcMemOp)
-            {
-                // indirection on pointer makes a number
-                hash->set(dest, NumberDomain(0));
-            }
-            else
-            {
-                // trying to make indirection of a number - error
-                hash->set(dest, hash->get(src));
-            }
-        };
+        }
     };
 
     struct Add : public Mnemonic
