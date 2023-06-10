@@ -310,6 +310,23 @@ public:
     }
 };
 
+class QNop : public QInstruction
+{
+public:
+    QNop() : QInstruction("", ""){};
+
+    void print()
+    {
+        std::cout << "nop ";
+        QInstruction::print();
+    }
+
+    std::unique_ptr<typeChecking::Mnemonic> createMnemonic() override
+    {
+        return std::make_unique<typeChecking::Nope>();
+    }
+};
+
 class QLabel : public QElement
 {
 private:
@@ -712,6 +729,19 @@ public:
     }
 };
 
+class QRetHandler : public QInstructionHandler
+{
+public:
+    // constructor
+    QRetHandler(QInstructionHandler *next, std::map<std::string, std::string> &registers) : QInstructionHandler(next, registers, "ret"){};
+    // method to handle the Qinstruction
+    void handleInstruction(std::vector<std::string> tokens, std::vector<QElement *> &instructions) override
+    {
+        // create a QRet and add it to the vector of Qinstructions
+        instructions.push_back(new QNop());
+    }
+};
+
 class QProgram
 {
 private:
@@ -732,8 +762,23 @@ public:
     {
         // create the chain of responsibility starting with QAddHandler and add the registers map reference to every handler
         // QInstructionHandler *instructionshandler = new QAddHandler(new QSubHandler(new QMulHandler(new QDivHandler(new QMovHandler(new QLeaHandler (new QLogicalOPHandler(new QErrorInstructionHandler(NULL, registers), registers), registers), registers), registers), registers), registers), registers);
-        QInstructionHandler *instructionshandler = new QAddHandler(new QSubHandler(new QMulHandler(new QDivHandler(new QMovHandler(new QLeaHandler(new QJmpHandler(new QLogicalOPHandler(nullptr, registers), registers), registers), registers), registers), registers), registers), registers);
-
+    QInstructionHandler *instructionshandler = new QAddHandler(
+        new QSubHandler(
+            new QMulHandler(
+                new QDivHandler(
+                    new QMovHandler(
+                        new QLeaHandler(
+                            new QJmpHandler(
+                                new QRetHandler(
+                                new QLogicalOPHandler(nullptr, registers),
+                                            registers),
+                                    registers),
+                            registers),
+                        registers),
+                    registers),
+                registers),
+            registers),
+        registers);
         // iterate over the vector of vector of strings
 
         QSetTypeHandler *setTypeHandler = new QSetTypeHandler(instructionshandler, registers);
