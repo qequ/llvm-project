@@ -243,6 +243,11 @@ public:
     {
         return "logop";
     }
+
+    std::unique_ptr<typeChecking::Mnemonic> createMnemonic() override
+    {
+        return std::make_unique<typeChecking::LogOp>(src, dst);
+    }
 };
 
 class QMov : public QInstruction
@@ -691,27 +696,9 @@ public:
 
 class QLogicalOPHandler : public QInstructionHandler
 {
-private:
-    bool checkMnemonic(std::string mnemonic)
-    {
-        // vector of strings mnemonics
-        std::vector<std::string> mnemonics = {"and", "or", "xor", "not", "shl", "shr"};
-        // iterate over the mnemonics
-        for (std::string m : mnemonics)
-        {
-            // check if the mnemonic is equal to the current mnemonic
-            if (m == mnemonic)
-            {
-                // return true
-                return true;
-            }
-        }
-        return false;
-    }
-
 public:
     // constructor
-    QLogicalOPHandler(QInstructionHandler *next, std::map<std::string, std::string> &registers) : QInstructionHandler(next, registers, "and"){};
+    QLogicalOPHandler(QInstructionHandler *next, std::map<std::string, std::string> &registers, std::string logOpMnemonic) : QInstructionHandler(next, registers, logOpMnemonic){};
     // method to handle the Qinstruction
 
     void handleInstruction(std::vector<std::string> tokens, std::vector<QElement *> &instructions) override
@@ -760,6 +747,17 @@ public:
     // method to take a vector of vector of strings and convert it to a vector of Qinstructions
     void convertToQInstructionChain(std::vector<std::vector<std::string>> tokens)
     {
+    QLogicalOPHandler *xorOpHandler = new QLogicalOPHandler(nullptr, registers, "xor");
+    QLogicalOPHandler *orOpHandler = new QLogicalOPHandler(xorOpHandler, registers, "or");
+    QLogicalOPHandler *andOpHandler = new QLogicalOPHandler(orOpHandler, registers, "and");
+    QLogicalOPHandler *notOpHandler = new QLogicalOPHandler(andOpHandler, registers, "not");
+    // qloficalophandler for shr, shl, sar, sal
+    QLogicalOPHandler *shrOpHandler = new QLogicalOPHandler(notOpHandler, registers, "shr");
+    QLogicalOPHandler *shlOpHandler = new QLogicalOPHandler(shrOpHandler, registers, "shl");
+    QLogicalOPHandler *sarOpHandler = new QLogicalOPHandler(shlOpHandler, registers, "sar");
+    QLogicalOPHandler *salOpHandler = new QLogicalOPHandler(sarOpHandler, registers, "sal");
+
+
         // create the chain of responsibility starting with QAddHandler and add the registers map reference to every handler
         // QInstructionHandler *instructionshandler = new QAddHandler(new QSubHandler(new QMulHandler(new QDivHandler(new QMovHandler(new QLeaHandler (new QLogicalOPHandler(new QErrorInstructionHandler(NULL, registers), registers), registers), registers), registers), registers), registers), registers);
     QInstructionHandler *instructionshandler = new QAddHandler(
@@ -769,8 +767,7 @@ public:
                     new QMovHandler(
                         new QLeaHandler(
                             new QJmpHandler(
-                                new QRetHandler(
-                                new QLogicalOPHandler(nullptr, registers),
+                                new QRetHandler(salOpHandler,
                                             registers),
                                     registers),
                             registers),
