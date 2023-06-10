@@ -157,6 +157,23 @@ namespace typeChecking
         }
     };
 
+    struct LogOp: public Mnemonic
+    {
+        using Mnemonic::Mnemonic;
+
+        void analyze_dest_number(AbstractEnvironment *hash) const override
+        {
+            if (!hash->get(src).equals(NumberDomain(0)))
+            {
+                throw std::runtime_error("type check error");
+            }
+        };
+        void analyze_dest_pointer(AbstractEnvironment *hash) const override
+        {
+            throw std::runtime_error("type check error");
+        };
+    };
+
     struct Add : public Mnemonic
     {
         using Mnemonic::Mnemonic;
