@@ -109,6 +109,24 @@ struct X86Operand final : public MCParsedAsmOperand {
   /// getOffsetOfLoc - Get the location of the offset operator.
   SMLoc getOffsetOfLoc() const override { return OffsetOfLoc; }
 
+
+
+  bool isMnemonicJmp(std::string &jmps) const {
+    //given a vector that contains jmps; jmp, je, jne, jg, jge, jl, jle, ja, jae, jb, jbe, jcxz, jecxz, jrcxz
+    // check if jmps contains the current operand
+    // if so, return true
+    // else return false
+    std::vector<std::string> jmps_vec = {"jmp", "je", "jne", "jg", "jge", "jl", "jle", "ja", "jae", "jb", "jbe", "jcxz", "jecxz", "jrcxz"};
+    for (auto i = jmps_vec.begin(); i != jmps_vec.end(); ++i){
+      if (*i == jmps){
+        return true;
+      }
+    }
+    return false;
+
+  }
+
+
   void storeValue(std::vector<std::string>& storage ) const override {
     // switch over kind and store the value in the storage vector
     std::string tokenstr;
@@ -128,6 +146,19 @@ struct X86Operand final : public MCParsedAsmOperand {
         storage.push_back("Reg:Imm");
         break;
       case Memory:
+        // print the first element of storage vector
+        // if storage[0] contains jmp  add the Disp label to the string
+        if (isMnemonicJmp(storage[0])){
+          const MCSymbolRefExpr *SRE = dyn_cast<MCSymbolRefExpr>(getMemDisp());
+          if (SRE){
+            const MCSymbol &Sym = SRE->getSymbol();
+            if (const char *SymNameStr = Sym.getName().data())
+              regstr = std::string(SymNameStr);
+          }
+          storage.push_back(regstr);
+          break;
+        }
+
         if (Mem.BaseReg){
           regstr = X86IntelInstPrinter::getRegisterName(Mem.BaseReg);
           // if regstr is rbp, get the Disp and add it to the string
