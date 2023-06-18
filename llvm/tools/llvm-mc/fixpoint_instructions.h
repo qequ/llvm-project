@@ -17,7 +17,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include "qequinstructions.h"
 #include <boost/functional/hash.hpp>
 
 namespace typeChecking
