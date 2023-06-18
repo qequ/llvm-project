@@ -309,6 +309,12 @@ public:
         QInstruction::print();
     }
 
+    std::string getMnemonic() override
+    {
+        return "jmp:" + dst;
+    }
+
+
     std::unique_ptr<typeChecking::Mnemonic> createMnemonic() override
     {
         return std::make_unique<typeChecking::Nope>();
@@ -347,7 +353,8 @@ public:
 
     std::string getMnemonic() override
     {
-        return "label";
+        // return "label: " + label;
+        return "label:" + label;
     }
 
     std::unique_ptr<typeChecking::Mnemonic> createMnemonic() override
@@ -665,25 +672,10 @@ public:
 
 class QJmpHandler : public QInstructionHandler
 {
-private:
-    bool checkMnemonic(std::string mnemonic)
-    {
-        // vector of mnemonics that are jumps
-        std::vector<std::string> jumps = {"jmp", "je", "jne", "jg", "jge", "jl", "jle"};
-        // check if the mnemonic is a jump
-        for (std::string jump : jumps)
-        {
-            if (mnemonic == jump)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
 
 public:
     // constructor
-    QJmpHandler(QInstructionHandler *next, std::map<std::string, std::string> &registers) : QInstructionHandler(next, registers, "jmp"){};
+    QJmpHandler(QInstructionHandler *next, std::map<std::string, std::string> &registers, std::string jmpMnemonic) : QInstructionHandler(next, registers, jmpMnemonic){};
     // method to handle the Qinstruction
     void handleInstruction(std::vector<std::string> tokens, std::vector<QElement *> &instructions) override
     {
@@ -758,6 +750,15 @@ public:
     QLogicalOPHandler *salOpHandler = new QLogicalOPHandler(sarOpHandler, registers, "sal");
 
 
+    QJmpHandler *jneHandler = new QJmpHandler(salOpHandler, registers, "jne");
+    QJmpHandler *jeHandler = new QJmpHandler(jneHandler, registers, "je");
+    QJmpHandler *jgHandler = new QJmpHandler(jeHandler, registers, "jg");
+    QJmpHandler *jgeHandler = new QJmpHandler(jgHandler, registers, "jge");
+    QJmpHandler *jlHandler = new QJmpHandler(jgeHandler, registers, "jl");
+    QJmpHandler *jleHandler = new QJmpHandler(jlHandler, registers, "jle");
+    QJmpHandler *jmpHandler = new QJmpHandler(jlHandler, registers, "jmp");
+
+
         // create the chain of responsibility starting with QAddHandler and add the registers map reference to every handler
         // QInstructionHandler *instructionshandler = new QAddHandler(new QSubHandler(new QMulHandler(new QDivHandler(new QMovHandler(new QLeaHandler (new QLogicalOPHandler(new QErrorInstructionHandler(NULL, registers), registers), registers), registers), registers), registers), registers), registers);
     QInstructionHandler *instructionshandler = new QAddHandler(
@@ -766,10 +767,8 @@ public:
                 new QDivHandler(
                     new QMovHandler(
                         new QLeaHandler(
-                            new QJmpHandler(
-                                new QRetHandler(salOpHandler,
+                                new QRetHandler(jmpHandler,
                                             registers),
-                                    registers),
                             registers),
                         registers),
                     registers),
@@ -801,18 +800,59 @@ public:
         setTypeBlock->add(std::make_unique<typeChecking::SetType>("r2", typeChecking::TypesOptions::NUMBER));
         basicBlocks.push_back(setTypeBlock);
 
-        for (QElement *instruction : instructions)
+        // vector to keep labels
+        std::vector<std::string> labels;
+
+        // map of labels string to index of basicBlocks
+        std::map<std::string, int> labelsMap;
+
+        // map of index jmps to labels
+        std::map<int, std::string> jmpsMap;
+
+
+        // iterate over the vector of Qinstructions by index and create a basic block for each one
+        for (int i = 0; i < instructions.size(); i++)
         {
+            // create a basic block
             typeChecking::BasicBlock *bb = program.create_block();
             // put the newMnemonic in the vector
-            bb->add(instruction->createMnemonic());
+            bb->add(instructions[i]->createMnemonic());
             basicBlocks.push_back(bb);
+            // check if the mnemonic startswith jmp: or label
+            if (instructions[i]->getMnemonic().find("jmp:") != std::string::npos)
+            {
+                // get the label
+                std::string label = instructions[i]->getMnemonic().substr(4);
+                std::cout << "jmp label: " << label << std::endl;
+                // add the index and label to jmpsMap
+                jmpsMap[i+1] = label;
+            }
+            else if (instructions[i]->getMnemonic().find("label:") != std::string::npos)
+            {
+                // get the label
+                std::string label = instructions[i]->getMnemonic().substr(6);
+                std::cout << "label: " << label << std::endl;
+                // add the label and the index to labelsMap
+                labelsMap[label] = i+1;
+            }
         }
 
         // iterate again over vector basicBlocks and call bb->add_successor with the next element of the vector
         for (int i = 0; i < basicBlocks.size() - 1; i++)
         {
             basicBlocks[i]->add_successor(basicBlocks[i + 1]);
+        }
+
+        // iterate over jmpsMap and call bb->add_successor with the label
+        for (auto jmp : jmpsMap)
+        {
+            std::cout << "jmp.first: " << jmp.first << " label to jmp: " << jmp.second << std::endl;
+
+            // get the index of the label
+            int index = labelsMap[jmp.second];
+            std::cout << "index: " << index << std::endl;
+            // add the successor
+            basicBlocks[jmp.first]->add_successor(basicBlocks[index]);
         }
 
         // call program.set_entry with the first elment of the vector
